@@ -141,9 +141,16 @@ realtime-chat/
 ### Express Backend (port 5001)
 - `POST /api/auth/register`: Register a new user
 - `POST /api/auth/login`: User login
-- `GET /api/users`: Get all users
+- `GET /api/users`: Get recommended users (not all users)
 - `GET /api/users/friends`: Get user's friends
-- `POST /api/users/friend-request/:userId`: Send friend request
+- `POST /api/users/friend-request/:id`: Send friend request
+- `PUT /api/users/friend-request/:id/accept`: Accept friend request
+- `DELETE /api/users/friend-request/:id/reject`: Reject friend request
+- `DELETE /api/users/friend-request/:id/cancel`: Cancel sent friend request
+- `DELETE /api/users/friends/:id`: Remove friend
+- `GET /api/users/friend-requests`: Get incoming friend requests
+- `GET /api/users/outgoing-friend-requests`: Get outgoing friend requests
+- `GET /api/chat/debug`: Debug endpoint for authentication
 - `GET /api/chat/token`: Get Stream Chat token
 - `POST /api/chat/messages`: Save chat messages
 

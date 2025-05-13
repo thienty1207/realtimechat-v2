@@ -15,6 +15,7 @@ Dự án frontend của bạn là một ứng dụng chat thời gian thực đ�
   - `CallButton.jsx` (14 dòng): Nút để bắt đầu cuộc gọi video với người dùng khác.
   - `ChatLoader.jsx`, `PageLoader.jsx` (13 dòng): Các component hiển thị trạng thái đang tải.
   - `NoFriendsFound.jsx`, `NoNotificationsFound.jsx` (13-18 dòng): Các thành phần hiển thị khi không có dữ liệu.
+  - `SocketProvider.jsx` (253 dòng): Component xử lý kết nối WebSocket, nhận và xử lý các thông báo thời gian thực như lời mời kết bạn, chấp nhận bạn bè, hủy bạn bè.
 
 ### 1.2. pages
 - **Chức năng**: Chứa các trang chính của ứng dụng, mỗi trang tương ứng với một route.
@@ -30,9 +31,10 @@ Dự án frontend của bạn là một ứng dụng chat thời gian thực đ�
 ### 1.3. lib
 - **Chức năng**: Chứa các hàm tiện ích và API calls.
 - **Chi tiết**:
-  - `api.js` (66 dòng): Định nghĩa tất cả các API endpoint và functions để giao tiếp với backend.
-  - `axios.js` (9 dòng): Cấu hình Axios HTTP client, thiết lập baseURL và withCredentials.
+  - `api.js` (66 dòng): Định nghĩa tất cả các API endpoint và functions để giao tiếp với backend Express.
+  - `axios.js` (9 dòng): Cấu hình Axios HTTP client, thiết lập baseURL và withCredentials để giao tiếp với Express backend.
   - `utils.js` (2 dòng): Các hàm tiện ích dùng chung trong ứng dụng.
+  - `socket.js` (30 dòng): Cấu hình Socket.IO client để kết nối với WebSocket server cho các thông báo thời gian thực.
 
 ### 1.4. hooks
 - **Chức năng**: Chứa các React custom hooks để quản lý logic và trạng thái.
@@ -68,6 +70,7 @@ Dự án frontend của bạn là một ứng dụng chat thời gian thực đ�
     - `zustand`: Quản lý state toàn cục nhẹ.
     - `react-hot-toast`: Hiển thị thông báo.
     - `lucide-react`: Bộ icon.
+    - `socket.io-client`: Kết nối WebSocket cho thông báo thời gian thực.
   - **DevDependencies chính**:
     - `vite`: Build tool hiệu suất cao.
     - `tailwindcss`, `postcss`, `autoprefixer`: CSS utilities.
@@ -87,6 +90,7 @@ Dự án frontend của bạn là một ứng dụng chat thời gian thực đ�
    - `axios.js`: Cách cấu hình HTTP client
    - `api.js`: Các API endpoint và cách giao tiếp với backend
    - `utils.js`: Các hàm tiện ích
+   - `socket.js`: Cấu hình kết nối WebSocket
 
 3. **constants**: Nắm vững các giá trị hằng số trong ứng dụng, đặc biệt là themes và languages.
 
@@ -99,6 +103,7 @@ Dự án frontend của bạn là một ứng dụng chat thời gian thực đ�
 6. **components**: Hiểu các UI component tái sử dụng.
    - `Layout.jsx`: Bố cục chính
    - `Navbar.jsx`, `Sidebar.jsx`: Điều hướng
+   - `SocketProvider.jsx`: Xử lý thông báo thời gian thực
    - Các component nhỏ: `FriendCard.jsx`, `ThemeSelector.jsx`, v.v.
 
 7. **pages**: Cách các trang được tổ chức và cách chúng sử dụng các component khác.
@@ -139,12 +144,13 @@ Dự án frontend của bạn là một ứng dụng chat thời gian thực đ�
 
 ## 5. Tích Hợp Với Backend
 
-Frontend giao tiếp với backend thông qua các API endpoint được định nghĩa trong `lib/api.js`. Các hoạt động chính bao gồm:
+Frontend giao tiếp với Express backend thông qua các API endpoint được định nghĩa trong `lib/api.js`. Các hoạt động chính bao gồm:
 
 - **Authentication**: Đăng ký, đăng nhập, đăng xuất
 - **Quản lý người dùng**: Cập nhật thông tin, tìm kiếm người dùng
-- **Social**: Gửi lời mời kết bạn, chấp nhận/từ chối lời mời
-- **Chat**: Tạo kênh, gửi tin nhắn thông qua Stream Chat SDK
+- **Social**: Gửi lời mời kết bạn, chấp nhận/từ chối lời mời, xóa bạn bè
+- **Chat**: Tạo kênh, gửi và lưu tin nhắn thông qua Stream Chat SDK
 - **Gọi video**: Khởi tạo và tham gia cuộc gọi thông qua Stream Video SDK
+- **Thông báo thời gian thực**: Nhận thông báo về lời mời kết bạn, chấp nhận/từ chối, v.v. thông qua Socket.IO
 
 Backend cung cấp Stream Chat token và JWT token cho authentication, được xử lý trong `hooks/useAuthUser.js` và các hook liên quan.

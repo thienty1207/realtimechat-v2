@@ -28,7 +28,9 @@ Dự án backend của bạn là một ứng dụng chat thời gian thực đư
     - Cập nhật thông tin cá nhân (updateProfile)
   
   - `chat.controller.js` (13 dòng):
-    - Tạo token Stream Chat cho người dùng (getStreamToken)
+    - Tạo token Stream Chat cho người dùng (getStreamToken, getChatToken)
+    - Lưu trữ tin nhắn (saveMessage)
+    - API debug để kiểm tra xác thực (debugAuth)
     - Sử dụng biến môi trường: JWT_SECRET_KEY (gián tiếp)
 
 ### 1.3. middleware
@@ -68,12 +70,15 @@ Dự án backend của bạn là một ứng dụng chat thời gian thực đư
     - `/profile`: Cập nhật thông tin cá nhân
   
   - `chat.route.js` (10 dòng):
+    - `/debug`: Kiểm tra xác thực
     - `/token`: Lấy token Stream Chat
+    - `/messages`: Lưu trữ tin nhắn chat
 
 ### 1.6. server.js (44 dòng)
 - **Chức năng**: Khởi tạo ứng dụng, thiết lập middleware và kết nối tất cả các thành phần.
 - **Chi tiết**:
   - Cấu hình CORS, cookie-parser, Express JSON
+  - Thiết lập Socket.IO cho thông báo realtime
   - Đăng ký các route API
   - Cấu hình phục vụ frontend khi ở chế độ production
   - Khởi động server và kết nối MongoDB
@@ -107,7 +112,7 @@ Dự án backend của bạn là một ứng dụng chat thời gian thực đư
 4. **controllers**: Đi sâu vào logic xử lý chi tiết
    - `auth.controller.js`: Xử lý đăng nhập, đăng ký
    - `user.controller.js`: Quản lý người dùng, kết bạn
-   - `chat.controller.js`: Xử lý chat
+   - `chat.controller.js`: Xử lý chat và tin nhắn
 
 5. **routes**: Hiểu cách API được định tuyến
    - `auth.route.js`, `user.route.js`, `chat.route.js`: Các endpoint API
@@ -136,4 +141,5 @@ Dự án backend của bạn là một ứng dụng chat thời gian thực đư
 5. Chat thời gian thực -> `chat.controller.js`
    - Tạo Stream token cho người dùng
    - Kết nối với Stream Chat service
+   - Lưu trữ tin nhắn
 
