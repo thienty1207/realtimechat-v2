@@ -72,7 +72,11 @@ const FriendCard = ({ friend }) => {
         </div>
 
         <div className="flex gap-2">
-          <Link to={`/chat/${friend._id}`} className="btn btn-outline flex-1">
+          <Link 
+            to={`/chat/${friend._id}`} 
+            state={{ targetUser: friend }}
+            className="btn btn-outline flex-1"
+          >
             Message
           </Link>
           

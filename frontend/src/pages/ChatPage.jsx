@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import useAuthUser from "../hooks/useAuthUser";
 import { useQuery } from "@tanstack/react-query";
 import { getChatToken } from "../lib/api";
@@ -12,6 +12,8 @@ import {
   MessageList,
   Thread,
   Window,
+  useChannelStateContext,
+  useChatContext,
 } from "stream-chat-react";
 import { StreamChat } from "stream-chat";
 import toast from "react-hot-toast";
@@ -20,6 +22,96 @@ import ChatLoader from "../components/ChatLoader";
 import CallButton from "../components/CallButton";
 
 const STREAM_API_KEY = import.meta.env.VITE_STREAM_API_KEY;
+
+// Custom ChannelHeader component to correctly display the other user's name
+const CustomChannelHeader = () => {
+  const { channel } = useChannelStateContext();
+  const { authUser } = useAuthUser();
+  const [otherUser, setOtherUser] = useState(null);
+  const [statusText, setStatusText] = useState("");
+
+  useEffect(() => {
+    const updateHeaderData = () => {
+      if (!channel || !authUser) {
+        setOtherUser(null);
+        setStatusText("");
+        return;
+      }
+
+      const members = Object.values(channel.state.members);
+      const other = members.find(
+        (member) => member.user?.id !== authUser._id.toString()
+      );
+
+      if (other?.user) {
+        setOtherUser(other.user);
+      } else {
+        setOtherUser(null);
+      }
+
+      // Calculate status text like "2 members, 1 online"
+      const memberCount = channel.data?.member_count || members.length;
+      const onlineMembers = members.filter((m) => m.user?.online === true);
+      // In a 1-on-1 chat, if the 'otherUser' is online, that's typically the "1 online" we care about for the header context
+      // or it could be the total online in the channel.
+      // The default Stream header likely shows total online members in the channel.
+      setStatusText(`${memberCount} members, ${onlineMembers.length} online`);
+    };
+
+    if (channel) {
+      updateHeaderData(); // Initial call
+
+      // Listen to channel events for dynamic updates
+      const listener = channel.on((event) => {
+        // Relevant events that might change header display
+        if (
+          event.type === "user.presence.changed" ||
+          event.type === "channel.member_added" || // stream-chat-react uses channel.member_added
+          event.type === "channel.member_removed" ||
+          event.type === "channel.updated" || // General channel updates
+          event.type === "connection.changed" // Overall connection status
+        ) {
+          updateHeaderData();
+        }
+      });
+      return () => listener.unsubscribe();
+    }
+  }, [channel, authUser]);
+
+  return (
+    <div className="p-3 flex items-center justify-between str-chat__header-livestream border-b-0">
+      {/* We use str-chat__header-livestream and border-b-0 to try and match Stream's default classes for structure but override border if needed */}
+      {/* Or, more simply, replicate the visual with Tailwind: */}
+      {/* <div className="p-3 flex items-center justify-between border-b border-base-300"> */}
+      
+      <div className="flex items-center gap-3">
+        {otherUser?.image && (
+          <div className="avatar w-10 h-10 str-chat__avatar str-chat__avatar--rounded">
+            {/* Using Stream's avatar classes for consistency if possible */}
+            <img src={otherUser.image} alt={otherUser.name || 'User Avatar'} className="rounded-full"/>
+          </div>
+        )}
+        {!otherUser?.image && (
+            <div className="avatar placeholder w-10 h-10 bg-neutral-focus text-neutral-content rounded-full">
+                <span className="text-xl">{otherUser?.name?.charAt(0).toUpperCase() || "?"}</span>
+            </div>
+        )}
+        <div>
+          <div className="font-semibold text-base-content str-chat__header-livestream-left-title truncate">
+            {otherUser?.name || otherUser?.id || "Chat"}
+          </div>
+          {statusText && (
+            <div className="text-xs text-base-content/70 str-chat__header-livestream-left-subtitle">
+              {statusText}
+            </div>
+          )}
+        </div>
+      </div>
+      {/* The CallButton is rendered externally by ChatPage and absolutely positioned */}
+      {/* So, no need to render it again here. */}
+    </div>
+  );
+};
 
 // Add utility function to force cleanup Stream chat instances
 const forceCleanupStreamInstances = () => {
@@ -77,6 +169,7 @@ const resetIndexedDBs = () => {
 const ChatPage = () => {
   const { id: targetUserId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const clientRef = useRef(null);
 
   const [chatClient, setChatClient] = useState(null);
@@ -86,6 +179,7 @@ const ChatPage = () => {
   const [errorState, setErrorState] = useState(null);
 
   const { authUser } = useAuthUser();
+  const targetUserFromState = location.state?.targetUser;
 
   // Use refetchOnWindowFocus to ensure tokens are fresh when tab is focused
   const { data: tokenData, refetch: refetchToken } = useQuery({
@@ -209,12 +303,26 @@ const ChatPage = () => {
 
         console.log("ChatPage: User connected successfully to Stream.");
 
+        // Upsert the target user's details into Stream so ChannelHeader can find them
+        if (targetUserFromState && targetUserFromState.fullName) {
+          try {
+            console.log(`ChatPage: Upserting target user ${targetUserId} with name '${targetUserFromState.fullName}' to Stream.`);
+            await client.upsertUsers([{
+              id: targetUserId.toString(), // Ensure ID is a string
+              name: targetUserFromState.fullName,
+              image: targetUserFromState.profilePic,
+            }]);
+            console.log("ChatPage: Target user upserted successfully.");
+          } catch (upsertError) {
+            console.error("ChatPage: Error upserting target user to Stream:", upsertError);
+          }
+        }
+
         // Setup channel for the conversation
-        const channelId = [authUser._id, targetUserId].sort().join("-");
+        const channelId = [authUser._id.toString(), targetUserId.toString()].sort().join("-");
         console.log(`ChatPage: Creating/getting channel: ${channelId}`);
         
         const currChannel = client.channel("messaging", channelId, {
-          name: `Chat with ${targetUserId}`, // Optional: give the channel a name
           members: [authUser._id.toString(), targetUserId.toString()],
         });
 
@@ -273,7 +381,7 @@ const ChatPage = () => {
       // No need to disconnect here as the main component unmount cleanup will handle it
       // or if initChat is called again, it handles its own cleanup.
     };
-  }, [authUser, tokenData, targetUserId, retryCount, refetchToken]); // Added refetchToken to dependencies
+  }, [authUser, tokenData, targetUserId, retryCount, refetchToken, targetUserFromState]); // Added refetchToken and targetUserFromState to dependencies
 
   const handleVideoCall = () => {
     if (channel) {
@@ -329,11 +437,11 @@ const ChatPage = () => {
     return (
       <div className="h-[93vh]">
         <Chat client={chatClient}>
-          <Channel channel={channel}>
+          <Channel key={channel?.id} channel={channel}>
             <div className="w-full relative">
               <CallButton handleVideoCall={handleVideoCall} />
               <Window>
-                <ChannelHeader />
+                <CustomChannelHeader />
                 <MessageList />
                 <MessageInput focus />
               </Window>
